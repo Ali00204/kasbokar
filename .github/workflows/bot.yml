@@ -1,0 +1,84 @@
+name: Bale Bot Automation
+
+on:
+  schedule:
+    # هر روز ساعت 8 صبح به وقت ایران
+    - cron: '0 4 * * *'
+    
+    # هر شنبه ساعت 9 صبح
+    - cron: '0 5 * * 0'
+    
+  workflow_dispatch:  # امکان اجرای دستی
+  push:              # با هر push اجرا شود
+  pull_request:      # با هر PR اجرا شود
+
+jobs:
+  send-message:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send daily message
+        run: |
+          curl -X POST "https://tapi.bale.ai/bot${{ secrets.BALE_BOT_TOKEN }}/sendMessage" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "chat_id": "@your_channel_username",
+            "text": "📢 پیام روزانه از طریق GitHub Actions\n\n⏰ زمان: $(date)\n🚀 این پیام به صورت خودکار ارسال شده است.",
+            "parse_mode": "HTML"
+          }'
+          
+      - name: Send success notification
+        if: success()
+        run: |
+          echo "✅ پیام با موفقیت ارسال شد"
+          
+      - name: Send failure notification
+        if: failure()
+        run: |
+          echo "❌ ارسال پیام با خطا مواجه شد"
+
+  send-advanced-message:
+    runs-on: ubuntu-latest
+    needs: send-message
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Send advanced message
+        run: |
+          python .github/scripts/send_advanced_message.py
+        env:
+          BOT_TOKEN: ${{ secrets.BALE_BOT_TOKEN }}
+
+  school-announcements:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send school announcement
+        run: |
+          MESSAGE="🏫 <b>اطلاعیه مدرسه</b>
+          
+          📅 تاریخ: $(date +'%Y/%m/%d')
+          ⏰ زمان: $(date +'%H:%M')
+          
+          📚 برنامه فردا:
+          • ریاضی: فصل ۴
+          • علوم: آزمایشگاه
+          • فارسی: انشا
+          
+          💡 نکته: همراه داشتن کتاب‌های درسی الزامی است.
+          
+          با آرزوی موفقیت 💫"
+          
+          curl -X POST "https://tapi.bale.ai/bot${{ secrets.BALE_BOT_TOKEN }}/sendMessage" \
+          -H "Content-Type: application/json" \
+          -d @- <<EOF
+          {
+            "chat_id": "@your_channel_username",
+            "text": "$MESSAGE",
+            "parse_mode": "HTML"
+          }
+          EOF
